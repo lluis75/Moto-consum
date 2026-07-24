@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Consumo Moto L/100km</title>
+<meta name="theme-color" content="#D9731C" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<style>
+  :root{
+    --bg:#F1EFE8; --card:#FFFFFF; --border:#D3D1C7;
+    --text:#2C2C2A; --text-2:#5F5E5A; --accent:#D9731C; --accent-dark:#8A4A0F;
+    --danger:#A32D2D;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#1c1c1a; --card:#26261f; --border:#444441;
+      --text:#F1EFE8; --text-2:#B4B2A9; --accent:#F0954A; --accent-dark:#F7C08A;
+      --danger:#F09595;
+    }
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:var(--bg); color:var(--text); padding:1.25rem;
+    padding-bottom:calc(1.25rem + env(safe-area-inset-bottom));
+  }
+  h1{font-size:20px;font-weight:600;margin:0 0 1rem;}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1.25rem;}
+  .stat{background:var(--card);border:0.5px solid var(--border);border-radius:12px;padding:0.9rem;}
+  .stat p:first-child{font-size:12px;color:var(--text-2);margin:0 0 4px;}
+  .stat p:last-child{font-size:19px;font-weight:600;margin:0;}
+  .card{background:var(--card);border:0.5px solid var(--border);border-radius:14px;padding:1rem 1.1rem;margin-bottom:1.25rem;}
+  .card h2{font-size:15px;font-weight:600;margin:0 0 12px;}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+  label{font-size:12px;color:var(--text-2);display:block;margin-bottom:3px;}
+  input{
+    width:100%;height:38px;border:1px solid var(--border);border-radius:8px;
+    padding:0 10px;font-size:15px;background:transparent;color:var(--text);
+  }
+  input:focus{outline:none;border-color:var(--accent);}
+  button{
+    width:100%;height:42px;border:none;border-radius:8px;background:var(--accent);
+    color:#fff;font-size:15px;font-weight:600;cursor:pointer;margin-top:2px;
+  }
+  button:active{opacity:0.85;}
+  .err{font-size:12px;color:var(--danger);margin:8px 0 0;display:none;}
+  .history{border:0.5px solid var(--border);border-radius:12px;overflow:hidden;}
+  .hrow{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;font-size:13px;border-top:0.5px solid var(--border);}
+  .hrow:first-child{border-top:none;}
+  .hrow .date{color:var(--text-2);}
+  .hrow .km{color:var(--text-2);}
+  .hrow .cons{font-weight:600;}
+  .empty{font-size:13px;color:var(--text-2);padding:1rem;margin:0;}
+</style>
+</head>
+<body>
+
+<h1>Consumo de la moto</h1>
+
+<div class="stats">
+  <div class="stat"><p>Consumo medio</p><p id="avg">–</p></div>
+  <div class="stat"><p>Km totales</p><p id="km">–</p></div>
+  <div class="stat"><p>Litros totales</p><p id="liters">–</p></div>
+</div>
+
+<div class="card">
+  <h2>Nuevo repostaje</h2>
+  <div class="row">
+    <div>
+      <label>Fecha</label>
+      <input type="date" id="in-date" />
+    </div>
+    <div>
+      <label>Kilometraje actual</label>
+      <input type="number" id="in-km" placeholder="12300" inputmode="decimal" />
+    </div>
+  </div>
+  <label>Litros repostados</label>
+  <input type="number" step="0.01" id="in-liters" placeholder="8.5" inputmode="decimal" style="margin-bottom:12px;" />
+  <button id="add-btn">+ Añadir repostaje</button>
+  <p class="err" id="err"></p>
+</div>
+
+<div class="card">
+  <h2>Historial</h2>
+  <div class="history" id="history">
+    <p class="empty" id="empty">Todavía no hay repostajes. Añade el primero para calcular el consumo.</p>
+  </div>
+</div>
+
+<script>
+const KEY = 'moto-fuel-entries';
+let entries = JSON.parse(localStorage.getItem(KEY) || '[]');
+
+const $ = id => document.getElementById(id);
+$('in-date').value = new Date().toISOString().slice(0,10);
+
+function fmt1(n){ return (Math.round(n*10)/10).toLocaleString('es-ES'); }
+
+function render(){
+  const sorted = [...entries].sort((a,b)=>a.km-b.km);
+  let totalKm=0, totalLiters=0, rows=[];
+
+  for(let i=1;i<sorted.length;i++){
+    const dKm = sorted[i].km - sorted[i-1].km;
+    const liters = sorted[i].liters;
+    if(dKm>0){
+      totalKm += dKm; totalLiters += liters;
+      rows.push({...sorted[i], dKm, cons:(liters/dKm)*100});
+    }
+  }
+
+  $('km').textContent = totalKm ? fmt1(totalKm)+' km' : '–';
+  $('liters').textContent = totalLiters ? fmt1(totalLiters)+' L' : '–';
+  $('avg').textContent = totalKm ? fmt1(totalLiters/totalKm*100)+' L/100km' : '–';
+
+  const hist = $('history');
+  hist.innerHTML = '';
+  if(rows.length===0){
+    hist.appendChild($('empty'));
+    return;
+  }
+  rows.reverse().forEach(r=>{
+    const el = document.createElement('div');
+    el.className='hrow';
+    el.innerHTML = `<span class="date">${r.date}</span>
+      <span class="km">${Math.round(r.dKm)} km · ${fmt1(r.liters)} L</span>
+      <span class="cons">${fmt1(r.cons)} L/100km</span>`;
+    hist.appendChild(el);
+  });
+}
+
+$('add-btn').addEventListener('click', ()=>{
+  const date = $('in-date').value;
+  const km = parseFloat($('in-km').value);
+  const liters = parseFloat($('in-liters').value);
+  const err = $('err');
+
+  if(!date || isNaN(km) || isNaN(liters) || km<=0 || liters<=0){
+    err.textContent = 'Completa fecha, kilometraje y litros con valores válidos.';
+    err.style.display='block';
+    return;
+  }
+  if(entries.some(e=>e.km===km)){
+    err.textContent = 'Ya existe un repostaje con ese kilometraje.';
+    err.style.display='block';
+    return;
+  }
+  err.style.display='none';
+  entries.push({date, km, liters});
+  localStorage.setItem(KEY, JSON.stringify(entries));
+  $('in-km').value=''; $('in-liters').value='';
+  render();
+});
+
+render();
+
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('service-worker.js');
+}
+</script>
+</body>
+</html>
