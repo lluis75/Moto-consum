@@ -49,11 +49,13 @@
   button:active{opacity:0.85;}
   .err{font-size:12px;color:var(--danger);margin:8px 0 0;display:none;}
   .history{border:0.5px solid var(--border);border-radius:12px;overflow:hidden;}
-  .hrow{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;font-size:13px;border-top:0.5px solid var(--border);gap:8px;}
+  .hrow{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-top:0.5px solid var(--border);gap:10px;}
   .hrow:first-child{border-top:none;}
-  .hrow .date{color:var(--text-2);flex-shrink:0;}
-  .hrow .km{color:var(--text-2);flex-shrink:0;}
-  .hrow .cons{font-weight:600;flex-shrink:0;}
+  .hrow .main{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;}
+  .hrow .odo{font-size:16px;font-weight:600;}
+  .hrow .sub{font-size:12px;color:var(--text-2);}
+  .hrow .cons{font-size:14px;font-weight:600;text-align:right;flex-shrink:0;}
+  .hrow .cons.start{font-size:12px;font-weight:500;color:var(--text-2);}
   .empty{font-size:13px;color:var(--text-2);padding:1rem;margin:0;}
   .del-btn{
     width:26px;height:26px;min-width:26px;border-radius:50%;background:transparent;
@@ -115,18 +117,19 @@ function fmt1(n){ return (Math.round(n*10)/10).toLocaleString('es-ES'); }
 
 function persist(){ localStorage.setItem(KEY, JSON.stringify(entries)); }
 
+function fmtDate(s){ const p = s.split('-'); return p.length===3 ? p[2]+'/'+p[1]+'/'+p[0] : s; }
+function fmtKm(n){ return n.toLocaleString('es-ES', {maximumFractionDigits:1}); }
+
 function render(){
   const sorted = [...entries].sort((a,b)=>a.km-b.km);
-  let totalKm=0, totalLiters=0, rows=[];
+  let totalKm=0, totalLiters=0;
 
-  for(let i=1;i<sorted.length;i++){
-    const dKm = sorted[i].km - sorted[i-1].km;
-    const liters = sorted[i].liters;
-    if(dKm>0){
-      totalKm += dKm; totalLiters += liters;
-      rows.push({...sorted[i], dKm, cons:(liters/dKm)*100});
-    }
-  }
+  const rows = sorted.map((e,i)=>{
+    if(i===0) return {...e, first:true};
+    const dKm = e.km - sorted[i-1].km;
+    totalKm += dKm; totalLiters += e.liters;
+    return {...e, dKm, cons:(e.liters/dKm)*100};
+  });
 
   $('km').textContent = totalKm ? fmt1(totalKm)+' km' : '–';
   $('liters').textContent = totalLiters ? fmt1(totalLiters)+' L' : '–';
@@ -135,16 +138,21 @@ function render(){
   const hist = $('history');
   hist.innerHTML = '';
   if(rows.length===0){
-    hist.appendChild($('empty'));
+    hist.innerHTML = '<p class="empty">Todavía no hay repostajes. Añade el primero para calcular el consumo.</p>';
     return;
   }
   rows.reverse().forEach(r=>{
     const el = document.createElement('div');
     el.className='hrow';
-    el.innerHTML = `<span class="date">${r.date}</span>
-      <span class="km">${Math.round(r.dKm)} km · ${fmt1(r.liters)} L</span>
-      <span class="cons">${fmt1(r.cons)} L/100km</span>
-      <button class="del-btn" data-km="${r.km}" title="Eliminar este repostaje">✕</button>`;
+    const detail = r.first
+      ? fmtDate(r.date)+' · '+fmt1(r.liters)+' L'
+      : fmtDate(r.date)+' · +'+fmtKm(r.dKm)+' km · '+fmt1(r.liters)+' L';
+    const cons = r.first
+      ? '<span class="cons start">Punto de partida</span>'
+      : '<span class="cons">'+fmt1(r.cons)+' L/100km</span>';
+    el.innerHTML = '<div class="main"><span class="odo">'+fmtKm(r.km)+' km</span><span class="sub">'+detail.replace(/ (km|L)/g,'\u00a0$1')+'</span></div>'
+      + cons
+      + '<button class="del-btn" data-km="'+r.km+'" title="Eliminar este repostaje" aria-label="Eliminar este repostaje">✕</button>';
     hist.appendChild(el);
   });
 
