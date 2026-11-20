@@ -1,7 +1,7 @@
 {
-  "name": "Consumo Moto L/100km",
+  "name": "Consum Moto L/100km",
   "short_name": "Moto",
-  "description": "Registra los repostajes de tu moto y calcula su consumo en litros por 100 km",
+  "description": "Registra els repostatges de la teva moto i calcula’n el consum en litres per 100 km",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#F1EFE8",
